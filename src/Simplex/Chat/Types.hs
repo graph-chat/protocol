@@ -20,8 +20,20 @@ import Database.SQLite.Simple.Internal (Field (..))
 import Database.SQLite.Simple.Ok (Ok (Ok))
 import Database.SQLite.Simple.ToField (ToField (..))
 import GHC.Generics
-import Simplex.Messaging.Agent.Protocol (ConnId)
+import Simplex.Messaging.Agent.Protocol (ConnId, SMPQueueInfo)
 import Simplex.Messaging.Agent.Store.SQLite (fromTextField_)
+
+class IsContact a where
+  contactId' :: a -> Int64
+  profile' :: a -> Profile
+
+instance IsContact User where
+  contactId' = userContactId
+  profile' = profile
+
+instance IsContact Contact where
+  contactId' = contactId
+  profile' = profile
 
 data User = User
   { userId :: UserId,
@@ -52,7 +64,7 @@ data Group = Group
   { groupId :: Int64,
     localDisplayName :: GroupName,
     groupProfile :: GroupProfile,
-    members :: [(GroupMember, Connection)],
+    members :: [(GroupMember, Maybe Connection)],
     membership :: GroupMember
   }
   deriving (Eq, Show)
@@ -76,6 +88,24 @@ data GroupProfile = GroupProfile
 instance ToJSON GroupProfile where toEncoding = J.genericToEncoding J.defaultOptions
 
 instance FromJSON GroupProfile
+
+data GroupInvitation = GroupInvitation
+  { fromMember :: MemberInfo,
+    invitedMember :: MemberInfo,
+    queueInfo :: SMPQueueInfo,
+    groupProfile :: GroupProfile
+  }
+  deriving (Eq, Show)
+
+data ReceivedGroupInvitation = ReceivedGroupInvitation
+  { fromMember :: GroupMember,
+    invitedMember :: GroupMember,
+    queueInfo :: SMPQueueInfo,
+    groupProfile :: GroupProfile
+  }
+  deriving (Eq, Show)
+
+type MemberInfo = (MemberId, GroupMemberRole)
 
 data GroupMember = GroupMember
   { groupMemberId :: Int64,
@@ -133,8 +163,13 @@ fromBlobField_ p = \case
       Left e -> returnError ConversionFailed f ("couldn't parse field: " ++ e)
   f -> returnError ConversionFailed f "expecting SQLBlob column type"
 
-data GroupMemberStatus = GSMemInvited | GSMemAccepted | GSMemConnected | GSMemReady
-  deriving (Eq, Show)
+data GroupMemberStatus
+  = GSMemInvited -- member received (or sent to) invitation
+  | GSMemAccepted -- member accepted invitation
+  | GSMemConnected -- member created the group connection with the inviting member
+  | GSMemReady -- member connections are forwarded to all previous members
+  | GSMemFull -- member created group connections with all previous members
+  deriving (Eq, Show, Ord)
 
 instance FromField GroupMemberStatus where fromField = fromTextField_ memberStatusT
 
@@ -146,6 +181,7 @@ memberStatusT = \case
   "accepted" -> Just GSMemAccepted
   "connected" -> Just GSMemConnected
   "ready" -> Just GSMemReady
+  "full" -> Just GSMemFull
   _ -> Nothing
 
 serializeMemberStatus :: GroupMemberStatus -> Text
@@ -154,6 +190,7 @@ serializeMemberStatus = \case
   GSMemAccepted -> "accepted"
   GSMemConnected -> "connected"
   GSMemReady -> "ready"
+  GSMemFull -> "full"
 
 data Connection = Connection
   { connId :: Int64,

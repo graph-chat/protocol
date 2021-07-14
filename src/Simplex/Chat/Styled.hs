@@ -3,10 +3,9 @@
 
 module Simplex.Chat.Styled
   ( StyledString (..),
-    plain,
+    StyledFormat (..),
     styleMarkdown,
     styleMarkdownText,
-    styled,
     sLength,
   )
 where

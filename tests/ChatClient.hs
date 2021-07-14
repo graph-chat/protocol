@@ -13,6 +13,7 @@ import Simplex.Chat.Controller (ChatController (..))
 import Simplex.Chat.Options
 import Simplex.Chat.Store
 import Simplex.Chat.Types (Profile)
+import System.Directory (createDirectoryIfMissing, removeDirectoryRecursive)
 import qualified System.Terminal as C
 import System.Terminal.Internal (VirtualTerminal, VirtualTerminalSettings (..), withVirtualTerminal)
 
@@ -51,6 +52,8 @@ virtualSimplexChat dbFile profile = do
 
 testChat2 :: Profile -> Profile -> (TestCC -> TestCC -> IO ()) -> IO ()
 testChat2 p1 p2 test = do
+  createDirectoryIfMissing False "tests/tmp"
   tc1 <- virtualSimplexChat testDB1 p1
   tc2 <- virtualSimplexChat testDB2 p2
   test tc1 tc2
+  removeDirectoryRecursive "tests/tmp"

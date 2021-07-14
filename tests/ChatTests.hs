@@ -18,16 +18,23 @@ aliceProfile = Profile {displayName = "alice", fullName = "Alice"}
 bobProfile :: Profile
 bobProfile = Profile {displayName = "bob", fullName = "Bob"}
 
-testAddContact :: Spec
-testAddContact = describe "add chat contact" $
-  it "add contact and send/receive message" $
-    testChat2 aliceProfile bobProfile $ \alice bob -> do
+chatTests :: Spec
+chatTests = do
+  describe "direct messages" $
+    it "add contact and send/receive message" testAddContact
+  describe "chat groups" $
+    it "add contacts, create group and send/receive messages" testGroup
+
+testAddContact :: IO ()
+testAddContact =
+  testChat2 aliceProfile bobProfile $
+    \alice bob -> do
       alice ##> "/a"
       Just inv <- invitation <$> getWindow alice
       bob ##> ("/c " <> inv)
       concurrently_
-        (bob <## "alice is connected")
-        (alice <## "bob is connected")
+        (bob <## "alice (Alice) is connected")
+        (alice <## "bob (Bob) is connected")
       alice #> "@bob hello"
       bob <# "alice> hello"
       bob #> "@alice hi"
@@ -37,8 +44,8 @@ testAddContact = describe "add chat contact" $
       Just inv' <- invitation <$> getWindow alice
       bob ##> ("/c " <> inv')
       concurrently_
-        (bob <## "alice_1 is connected")
-        (alice <## "bob_1 is connected")
+        (bob <## "alice_1 (Alice) is connected")
+        (alice <## "bob_1 (Bob) is connected")
       alice #> "@bob_1 hello"
       bob <# "alice_1> hello"
       bob #> "@alice_1 hi"
@@ -46,21 +53,46 @@ testAddContact = describe "add chat contact" $
       -- test deleting contact
       alice ##> "/d bob_1"
       alice <## "bob_1 is deleted"
-      chatCommand alice "@bob_1 hey"
+      alice #:> "@bob_1 hey"
       alice <## "no contact bob_1"
+
+testGroup :: IO ()
+testGroup =
+  testChat2 aliceProfile bobProfile $
+    \alice bob -> do
+      connectUsers alice bob
+      alice #:> "/g #team"
+      -- TODO this occasionally fails in case getWindow is run before the command above is printed
+      alice <## "use /a #team <name> to add members"
+      alice ##> "/a #team bob admin"
+      alice <## "invitation to join the group #team sent to bob"
+      bob <## "use /j #team to accept"
+      bob ##> "/j #team"
+      concurrently_
+        (alice <## "bob joined the group #team")
+        (bob <## "you joined the group #team")
+
+connectUsers :: TestCC -> TestCC -> IO ()
+connectUsers cc1 cc2 = do
+  cc1 ##> "/a"
+  Just inv <- invitation <$> getWindow cc1
+  cc2 ##> ("/c " <> inv)
+  concurrently_
+    (cc2 <## "alice (Alice) is connected")
+    (cc1 <## "bob (Bob) is connected")
 
 (##>) :: TestCC -> String -> IO ()
 (##>) cc cmd = do
-  chatCommand cc cmd
+  cc #:> cmd
   cc <## cmd
 
 (#>) :: TestCC -> String -> IO ()
 (#>) cc cmd = do
-  chatCommand cc cmd
+  cc #:> cmd
   cc <# cmd
 
-chatCommand :: TestCC -> String -> IO ()
-chatCommand (TestCC cc _ _) cmd = atomically $ writeTBQueue (inputQ cc) $ InputCommand cmd
+(#:>) :: TestCC -> String -> IO ()
+(#:>) (TestCC cc _ _) cmd = atomically $ writeTBQueue (inputQ cc) $ InputCommand cmd
 
 (<##) :: TestCC -> String -> Expectation
 cc <## line = (lastOutput <$> getWindow cc) `shouldReturn` line

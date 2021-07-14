@@ -11,27 +11,26 @@ chatHelpInfo :: [StyledString]
 chatHelpInfo =
   map
     styleMarkdown
-    [ Markdown (Colored Cyan) "Using Simplex chat prototype.",
+    [ highlight "Using Simplex chat prototype.",
       "Follow these steps to set up a connection:",
       "",
-      Markdown (Colored Green) "Step 1: " <> Markdown (Colored Cyan) "/add bob" <> " -- Alice adds her contact, Bob (she can use any name).",
+      Markdown (Colored Green) "Step 1: " <> highlight "/add" <> " -- Alice adds a contact.",
       indent <> "Alice should send the invitation printed by the /add command",
       indent <> "to her contact, Bob, out-of-band, via any trusted channel.",
       "",
-      Markdown (Colored Green) "Step 2: " <> Markdown (Colored Cyan) "/connect alice <invitation>" <> " -- Bob accepts the invitation.",
-      indent <> "Bob also can use any name for his contact, Alice,",
-      indent <> "followed by the invitation he received out-of-band.",
+      Markdown (Colored Green) "Step 2: " <> highlight "/connect <invitation>" <> " -- Bob accepts the invitation.",
+      indent <> "Bob should use the invitation he received out-of-band.",
       "",
       Markdown (Colored Green) "Step 3: " <> "Bob and Alice are notified that the connection is set up,",
       indent <> "both can now send messages:",
-      indent <> Markdown (Colored Cyan) "@bob Hello, Bob!" <> " -- Alice messages Bob.",
-      indent <> Markdown (Colored Cyan) "@alice Hey, Alice!" <> " -- Bob replies to Alice.",
+      indent <> highlight "@bob Hello, Bob!" <> " -- Alice messages Bob (assuming Bob has display name 'bob').",
+      indent <> highlight "@alice Hey, Alice!" <> " -- Bob replies to Alice.",
       "",
       Markdown (Colored Green) "Other commands:",
-      indent <> Markdown (Colored Cyan) "/delete" <> " -- deletes contact and all messages with them.",
-      indent <> Markdown (Colored Cyan) "/markdown" <> " -- prints the supported markdown syntax.",
+      indent <> highlight "/delete <name>" <> " -- deletes contact and all messages with them.",
+      indent <> highlight "/markdown" <> " -- prints the supported markdown syntax.",
       "",
-      "The commands may be abbreviated to a single letter: " <> listCommands ["/a", "/c", "/d", "/m"]
+      "The commands may be abbreviated to a single letter: " <> listCommands ["/a", "/c", "/d", "/h", "/m"]
     ]
   where
     listCommands = mconcat . intersperse ", " . map highlight
